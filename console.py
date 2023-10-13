@@ -5,6 +5,7 @@ Module Console
 import cmd
 import shlex
 import sys
+import re
 import models
 from models.base_model import BaseModel
 from models.amenity import Amenity
@@ -14,14 +15,40 @@ from models.review import Review
 from models.state import State
 from models.user import User
 
+# Constants for error messages
+ERROR_CLASS_MISSING = "** class name missing **"
+ERROR_CLASS_DOES_NOT_EXIST = "** class doesn't exist **"
+ERROR_ID_MISSING = "** instance id missing **"
+ERROR_NO_INSTANCE_FOUND = "** no instance found **"
+ERROR_ATTRIBUTE_NAME_MISSING = "** attribute name missing **"
+ERROR_VALUE_MISSING = "** value missing **"
+
+
+def parse(arg):
+    curly_braces = re.search(r"\{(.*?)\}", arg)
+    brackets = re.search(r"\[(.*?)\]", arg)
+    if curly_braces is None:
+        if brackets is None:
+            return [i.strip(",") for i in shlex.split(arg)]
+        else:
+            lexer = shlex.split(arg[:brackets.span()[0]])
+            retl = [i.strip(",") for i in lexer]
+            retl.append(brackets.group())
+            return retl
+    else:
+        lexer = shlex.split(arg[:curly_braces.span()[0]])
+        retl = [i.strip(",") for i in lexer]
+        retl.append(curly_braces.group())
+        return retl
+
 
 class HBNBCommand(cmd.Cmd):
     """HBNB Class """
     prompt = '(hbnb) '
 
     classes = {'BaseModel': BaseModel, 'Amenity': Amenity,
-               'State': State, 'Place': Place, 'Review': Review,
-               'User': User, 'City': City}
+            'State': State, 'Place': Place, 'Review': Review,
+            'User': User, 'City': City}
 
     def do_quit(self, argument):
         """ Defines quit option"""
@@ -92,7 +119,7 @@ class HBNBCommand(cmd.Cmd):
             else:
                 print("** no instance found **")
 
-   
+
     def do_all(self, argument):
         """all string representation of all instances"""
         tokensA = shlex.split(argument)
@@ -123,38 +150,45 @@ class HBNBCommand(cmd.Cmd):
             # if listI:
             print(listI)
 
-    def do_update(self, argument):
-        """Updates an instance based on the class name and id """
-        tokensU = shlex.split(argument)
-        if len(tokensU) == 0:
-            print("** class name missing **")
+    def do_update(self, arg):
+        """Update an instance based on its ID."""
+        args = parse(arg)
+        obj_dict = models.storage.all()
+
+        if len(args) < 2:
+            print(ERROR_CLASS_MISSING)
             return
-        elif len(tokensU) == 1:
-            print("** instance id missing **")
+        if args[0] not in self.classes:
+            print(ERROR_CLASS_DOES_NOT_EXIST)
             return
-        elif len(tokensU) == 2:
-            print("** attribute name missing **")
+        if len(args) < 3:
+            print(ERROR_ID_MISSING)
             return
-        elif len(tokensU) == 3:
-            print("** value missing **")
+        if f"{args[0]}.{args[1]}" not in obj_dict:
+            print(ERROR_NO_INSTANCE_FOUND)
             return
-        elif tokensU[0] not in self.classes:
-            print("** class doesn't exist **")
-            return
-        keyI = tokensU[0] + "." + tokensU[1]
-        dicI = models.storage.all()
-        try:
-            instanceU = dicI[keyI]
-        except KeyError:
-            print("** no instance found **")
-            return
-        try:
-            typeA = type(getattr(instanceU, tokensU[2]))
-            tokensU[3] = typeA(tokensU[3])
-        except AttributeError:
-            pass
-        setattr(instanceU, tokensU[2], tokensU[3])
+
+        obj = obj_dict[f"{args[0]}.{args[1]}"]
+
+        if len(args) == 3 and type(args[2]) == dict:
+            # Updating with a dictionary
+            updates = args[2]
+            for key, value in updates.items():
+                if key in obj.__dict__:
+                    setattr(obj, key, value)
+        elif len(args) == 4:
+            # Updating with attribute name and value
+            attribute_name = args[2]
+            attribute_value = args[3]
+            if attribute_name in obj.__dict__:
+                setattr(obj, attribute_name, attribute_value)
+            else:
+                print(f"** no attribute named {attribute_name} **")
+        else:
+            print(ERROR_VALUE_MISSING)
+
         models.storage.save()
+
 
     def do_count(self, argument):
         """  retrieve the number of instances of a class """

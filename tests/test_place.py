@@ -2,7 +2,15 @@
 
 
 import unittest
+from datetime import datetime
+import time
 from models.place import Place
+import re
+import json
+from models.engine.file_storage import FileStorage
+import os
+from models import storage
+from models.base_model import BaseModel
 
 class TestPlace(unittest.TestCase):
     def test_place_initialization(self):
@@ -36,7 +44,28 @@ class TestPlace(unittest.TestCase):
         place.city_id = "123"
         self.assertEqual(place.city_id, "123")
 
-    # Add more test methods for other attributes as needed
+      def setUp(self):
+        """This sets up the test methods."""
+        pass
+
+    def tearDown(self):
+        """This tears down the test methods."""
+        self.resetStorage()
+        pass
+
+    def resetStorage(self):
+        """This resets the FileStorage data."""
+        FileStorage._FileStorage__objects = {}
+        if os.path.isfile(FileStorage._FileStorage__file_path):
+            os.remove(FileStorage._FileStorage__file_path)
+
+    def test_8_instantiation(self):
+        """This tests the instantiation of Place class."""
+
+        b = Place()
+        self.assertEqual(str(type(b)), "<class 'models.place.Place'>")
+        self.assertIsInstance(b, Place)
+        self.assertTrue(issubclass(type(b), BaseModel))
 
 if __name__ == '__main__':
     unittest.main()
